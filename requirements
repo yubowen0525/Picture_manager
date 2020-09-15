@@ -10,3 +10,4 @@ bootstrap-flask
 flask
 flask-whooshee
 flask-avatars
+flask-dropzone

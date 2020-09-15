@@ -59,6 +59,56 @@ img.save(the_destination_path)
 ```
 # 高级用户认证
 - 账号注册功能，填写注册信息，接收验证邮箱，通过单击验证链接来确认账号等。（基于Flask-Login）
-- 
+- 账号重置密码
+- 账号重置邮箱
+- 账号认证，重新认证
+
+# 优化文件上传
+多文件上传时，用户需要感知上传进度。而JavaScript实现的客户端实时显示文件上传状态，
+而且这些JavaScript上传库还提供了文件的客户端验证功能。
+
+常用的JavaScript文件上传库有
+- JQuery File Upload
+- Dropzone.js
+- Plupload等
+
+而扩展Flask-Dropzone集成了Dropzone.js 简化了大部分设置
+
+## Flask-Dropzone
+### 配置参数
+![9](.README_images/3ab01b12.png)
+
+### 文件类型配置值
+MIME类型以及后缀名判断文件类型
+![11](.README_images/1391d68c.png)
+
+### 错误处理
+![12](.README_images/05ab9630.png)
+
+### CSRF保护
+![13](.README_images/7a2825ba.png)
+
+### 导入依赖，创建html
+dropzone.load_css()
+dropzone.load_js()
+dropzone.style()
+dropzone.create()
+
+
+创建视图函数 : /upload
+![14](.README_images/42ea09fc.png)
+
+增加图片裁剪的功能，提高小图片（small）和中等图片(medium) 的功能
+
+# 用户弹窗 AJAX实现
+1. 使用AJAX请求获取用户的资料，两个点：（1）弹窗的触发方式 （2）弹窗中用户资料数据的获取方式
+    - JS中，监听鼠标悬停事件（hover）并显示弹窗并不复杂。
+    - 如何获取用户的数据？？？：如果写在HTML模板这样带来和删除确认模拟框同样的问题，当有多个用户头像也就加载了大量
+    并不需要加载的HTML代码。**所以更合理的方案是采用AJAX技术来动态获取数据，悬停事件触发AJAX获取后台数据**
+    
+
+
 # 插件依赖库
 ![10](.README_images/50a853b6.png)
+
+

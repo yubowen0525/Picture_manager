@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>Title</title>
+</head>
+<body>
+    <p>我帅不帅</p>
+    <p>我帅不帅2</p>
+    <a id="tag-btn" href="#!"><small>你谁啊</small></a>
+    <div id="tags" class="overflow-hidden">
+        <p>哈哈哈哈</p>
+    </div>
+</body>
+<script src="/Picture_manager_Web/albumy/static/js/jquery.min.js"></script>
+<script>
+
+    $("p").on("click", function () {
+        alert($(this).text());
+    });
+
+    $('#tag-btn').click(
+    function () {
+        $('#tags').show();
+    }
+    );
+</script>
+
+</html>

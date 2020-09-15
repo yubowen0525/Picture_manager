@@ -5,17 +5,23 @@
     :copyright: © 2018 Grey Li <withlihui@gmail.com>
     :license: MIT, see LICENSE for more details.
 """
+from flask_avatars import Avatars
 from flask_bootstrap import Bootstrap
+from flask_dropzone import Dropzone
 from flask_login import LoginManager, AnonymousUserMixin
 from flask_mail import Mail
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import CSRFProtect
 
 bootstrap = Bootstrap()
 db = SQLAlchemy()
 mail = Mail()
 moment = Moment()
 login_manager = LoginManager()
+dropzone = Dropzone()
+avatars = Avatars()
+csrf = CSRFProtect()
 
 
 @login_manager.user_loader

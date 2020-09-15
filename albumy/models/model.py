@@ -10,9 +10,11 @@
                    2020/9/4:
 -------------------------------------------------
 """
+import os
 from datetime import datetime
 
 from flask import current_app
+from flask_avatars import Identicon
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -82,6 +84,16 @@ class User(db.Model, UserMixin):
 
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
     role = db.relationship('Role', back_populates='users')
+    # 若用户删除，则图片也所有删除
+    photos = db.relationship('Photo', back_populates='author', cascade='all')
+    # 评论
+    comments = db.relationship('Comment', back_populates='author', cascade='all')
+    # 收藏
+    collections = db.relationship('Collect', back_populates='collector', cascade='all')
+
+    avatar_s = db.Column(db.String(64))
+    avatar_m = db.Column(db.String(64))
+    avatar_l = db.Column(db.String(64))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -92,6 +104,7 @@ class User(db.Model, UserMixin):
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         self.set_role()
+        self.generate_avatar()
 
     def set_role(self):
         if not self.role:
@@ -100,6 +113,18 @@ class User(db.Model, UserMixin):
             else:
                 self.role = Role.query.filter_by(name='User').first()
             db.session.commit()
+
+    def generate_avatar(self):
+        """
+
+        :return:
+        """
+        avatar = Identicon()
+        filenames = avatar.generate(text=self.username)
+        self.avatar_s = filenames[0]
+        self.avatar_m = filenames[1]
+        self.avatar_l = filenames[2]
+        db.session.commit()
 
     # 对于Flask_Login的普通用户，访客并没有is_admin,can的方法，所以需要手动自定义Guest类
     @property
@@ -119,6 +144,20 @@ class User(db.Model, UserMixin):
         permission = Permission.query.filter_by(name=permission_name).first()
         return permission and self.role and permission in self.role.permissions
 
+    def collect(self, photo):
+        if not self.is_collecting(photo):
+            collect = Collect(collector=self, collected=photo)
+            db.session.add(collect)
+            db.session.commit()
+
+    def uncollect(self, photo):
+        collect = Collect.query.with_parent(self).filter_by(collected_id=photo.id).first()
+        if collect:
+            db.session.delete(collect)
+            db.session.commit()
+
+    def is_collecting(self, photo):
+        return Collect.query.with_parent(self).filter_by(collected_id=photo.id).first() is not None
 
     @staticmethod
     def init_role():
@@ -134,3 +173,90 @@ class User(db.Model, UserMixin):
                     user.role = Role.query.filter_by(name='User').first()
             db.session.add(user)
         db.session.commit()
+
+
+tagging = db.Table('tagging',
+                   db.Column('photo_id', db.Integer, db.ForeignKey('photo.id')),
+                   db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'))
+                   )
+
+
+# relationship object
+# class Follow(db.Model):
+#     follower_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+#                             primary_key=True)
+#     followed_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+#                             primary_key=True)
+#     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+#
+#     follower = db.relationship('User', foreign_keys=[follower_id], back_populates='following', lazy='joined')
+#     followed = db.relationship('User', foreign_keys=[followed_id], back_populates='followers', lazy='joined')
+
+
+# relationship object
+class Collect(db.Model):
+    collector_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+                             primary_key=True)
+    collected_id = db.Column(db.Integer, db.ForeignKey('photo.id'),
+                             primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # photo.collectors.collector | photo.collectors获取包含收藏对象的Collect的列表，.collector/collected才会加载对应的用户和图片
+    # 这样就需要两次select，增加了一次查询，那么通过联结join这样只需要一次查询
+    # 收藏者
+    collector = db.relationship('User', back_populates='collections', lazy='joined')
+    # 被收藏图片
+    collected = db.relationship('Photo', back_populates='collectors', lazy='joined')
+
+
+class Photo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String(500))
+    filename = db.Column(db.String(64))
+    filename_s = db.Column(db.String(64))
+    filename_m = db.Column(db.String(64))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    can_comment = db.Column(db.Boolean, default=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    author = db.relationship('User', back_populates='photos')
+
+    comments = db.relationship('Comment', back_populates='photo', cascade='all')
+
+    tags = db.relationship('Tag', secondary=tagging, back_populates='photos')
+
+    collectors = db.relationship('Collect', back_populates='collected', cascade='all')
+
+
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), index=True, unique=True)
+
+    photos = db.relationship('Photo', secondary=tagging, back_populates='tags')
+
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    flag = db.Column(db.Integer, default=0)
+
+    replied_id = db.Column(db.Integer, db.ForeignKey('comment.id'))
+    photo_id = db.Column(db.Integer, db.ForeignKey('photo.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+    author = db.relationship('User', back_populates='comments')
+    photo = db.relationship('Photo', back_populates='comments')
+    replies = db.relationship('Comment', back_populates='replied', cascade='all')
+    replied = db.relationship('Comment', back_populates='replies', remote_side=[id])
+
+
+###########################################################################################
+
+
+@db.event.listens_for(Photo, 'after_delete')
+def delete_photos(mapper, connection, target):
+    for filename in [target.filename, target.filename_s, target.filename_m]:
+        path = os.path.join(current_app.config['ALBUMY_UPLOAD_PATH'], filename)
+        if os.path.exists(path):
+            os.remove(path)
