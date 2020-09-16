@@ -146,7 +146,7 @@ def edit_description(photo_id):
 @permission_required('COMMENT')
 def new_comment(photo_id):
     photo = Photo.query.get_or_404(photo_id)
-    page = request.args.get('page', 1, type=int)
+    page = request.args.get('page', default=1, type=int)
     form = CommentForm()
     if form.validate_on_submit():
         body = form.body.data

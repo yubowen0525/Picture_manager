@@ -68,6 +68,36 @@ class Permission(db.Model):
     roles = db.relationship('Role', secondary=roles_permissions, back_populates='permissions')
 
 
+# relationship object
+class Follow(db.Model):
+    follower_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+                            primary_key=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+                            primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # 关注者
+    follower = db.relationship('User', foreign_keys=[follower_id], back_populates='following', lazy='joined')
+    # 被关注者
+    followed = db.relationship('User', foreign_keys=[followed_id], back_populates='followers', lazy='joined')
+
+
+# relationship object
+class Collect(db.Model):
+    collector_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+                             primary_key=True)
+    collected_id = db.Column(db.Integer, db.ForeignKey('photo.id'),
+                             primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # photo.collectors.collector | photo.collectors获取包含收藏对象的Collect的列表，.collector/collected才会加载对应的用户和图片
+    # 这样就需要两次select，增加了一次查询，那么通过联结join这样只需要一次查询
+    # 收藏者
+    collector = db.relationship('User', back_populates='collections', lazy='joined')
+    # 被收藏图片
+    collected = db.relationship('Photo', back_populates='collectors', lazy='joined')
+
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     # 资料
@@ -90,6 +120,10 @@ class User(db.Model, UserMixin):
     comments = db.relationship('Comment', back_populates='author', cascade='all')
     # 收藏
     collections = db.relationship('Collect', back_populates='collector', cascade='all')
+    # 正在关注
+    following = db.relationship('Follow', foreign_keys=[Follow.follower_id], back_populates='follower', lazy='dynamic', cascade='all')
+    # 关注者
+    followers = db.relationship('Follow', foreign_keys=[Follow.followed_id], back_populates='followed', lazy='dynamic', cascade='all')
 
     avatar_s = db.Column(db.String(64))
     avatar_m = db.Column(db.String(64))
@@ -105,6 +139,7 @@ class User(db.Model, UserMixin):
         super(User, self).__init__(**kwargs)
         self.set_role()
         self.generate_avatar()
+        self.follow(self)
 
     def set_role(self):
         if not self.role:
@@ -145,16 +180,57 @@ class User(db.Model, UserMixin):
         return permission and self.role and permission in self.role.permissions
 
     def collect(self, photo):
+        """
+        收藏图片
+        :param photo:
+        :return:
+        """
         if not self.is_collecting(photo):
             collect = Collect(collector=self, collected=photo)
             db.session.add(collect)
             db.session.commit()
 
     def uncollect(self, photo):
+        """
+        取消收藏
+        :param photo:
+        :return:
+        """
         collect = Collect.query.with_parent(self).filter_by(collected_id=photo.id).first()
         if collect:
             db.session.delete(collect)
             db.session.commit()
+
+    def follow(self, user):
+        """
+        关注用户
+        :param user:
+        :return:
+        """
+        if not self.is_following(user):
+            follow = Follow(follower=self, followed=user)
+            db.session.add(follow)
+            db.session.commit()
+
+    def unfollow(self, user):
+        """
+        取消关注用户
+        :param user:
+        :return:
+        """
+        follow = self.following.filter_by(followed_id=user.id).first()
+        if follow:
+            db.session.delete(follow)
+            db.session.commit()
+
+    def is_following(self, user):
+        if user.id is None:  # when follow self, user.id will be None
+            return False
+        return self.following.filter_by(followed_id=user.id).first() is not None
+
+    def is_followed_by(self, user):
+        return self.followers.filter_by(followed_id=user.id).first() is not None
+
 
     def is_collecting(self, photo):
         return Collect.query.with_parent(self).filter_by(collected_id=photo.id).first() is not None
@@ -179,34 +255,6 @@ tagging = db.Table('tagging',
                    db.Column('photo_id', db.Integer, db.ForeignKey('photo.id')),
                    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'))
                    )
-
-
-# relationship object
-# class Follow(db.Model):
-#     follower_id = db.Column(db.Integer, db.ForeignKey('user.id'),
-#                             primary_key=True)
-#     followed_id = db.Column(db.Integer, db.ForeignKey('user.id'),
-#                             primary_key=True)
-#     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-#
-#     follower = db.relationship('User', foreign_keys=[follower_id], back_populates='following', lazy='joined')
-#     followed = db.relationship('User', foreign_keys=[followed_id], back_populates='followers', lazy='joined')
-
-
-# relationship object
-class Collect(db.Model):
-    collector_id = db.Column(db.Integer, db.ForeignKey('user.id'),
-                             primary_key=True)
-    collected_id = db.Column(db.Integer, db.ForeignKey('photo.id'),
-                             primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # photo.collectors.collector | photo.collectors获取包含收藏对象的Collect的列表，.collector/collected才会加载对应的用户和图片
-    # 这样就需要两次select，增加了一次查询，那么通过联结join这样只需要一次查询
-    # 收藏者
-    collector = db.relationship('User', back_populates='collections', lazy='joined')
-    # 被收藏图片
-    collected = db.relationship('Photo', back_populates='collectors', lazy='joined')
 
 
 class Photo(db.Model):
