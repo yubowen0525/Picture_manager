@@ -9,14 +9,16 @@ import os
 
 import click
 from flask import Flask, render_template
+from flask_login import current_user
 from flask_wtf.csrf import CSRFError
 
+from albumy.blueprints.admin import admin_bp
 from albumy.blueprints.ajax import ajax_bp
 from albumy.blueprints.auth import auth_bp
 from albumy.blueprints.main import main_bp
 from albumy.blueprints.user import user_bp
-from albumy.extensions import bootstrap, db, mail, moment, login_manager, dropzone, avatars, csrf
-from albumy.models.model import Role, User, Photo, Tag, Comment, Collect, Follow, Notification
+from albumy.extensions import bootstrap, db, login_manager, mail, dropzone, moment, whooshee, avatars, csrf
+from albumy.models.model import Role, User, Photo, Tag, Follow, Notification, Comment, Collect, Permission
 from albumy.settings import config
 
 
@@ -25,7 +27,7 @@ def create_app(config_name=None):
         config_name = os.getenv('FLASK_CONFIG', 'development')
 
     app = Flask('albumy')
-
+    
     app.config.from_object(config[config_name])
 
     register_extensions(app)
@@ -41,10 +43,11 @@ def create_app(config_name=None):
 def register_extensions(app):
     bootstrap.init_app(app)
     db.init_app(app)
-    mail.init_app(app)
-    moment.init_app(app)
     login_manager.init_app(app)
+    mail.init_app(app)
     dropzone.init_app(app)
+    moment.init_app(app)
+    whooshee.init_app(app)
     avatars.init_app(app)
     csrf.init_app(app)
 
@@ -53,6 +56,7 @@ def register_blueprints(app):
     app.register_blueprint(main_bp)
     app.register_blueprint(user_bp, url_prefix='/user')
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(ajax_bp, url_prefix='/ajax')
 
 
@@ -65,7 +69,13 @@ def register_shell_context(app):
 
 
 def register_template_context(app):
-    pass
+    @app.context_processor
+    def make_template_context():
+        if current_user.is_authenticated:
+            notification_count = Notification.query.with_parent(current_user).filter_by(is_read=False).count()
+        else:
+            notification_count = None
+        return dict(notification_count=notification_count)
 
 
 def register_errorhandlers(app):
@@ -93,6 +103,7 @@ def register_errorhandlers(app):
     def handle_csrf_error(e):
         return render_template('errors/400.html', description=e.description), 500
 
+
 def register_commands(app):
     @app.cli.command()
     @click.option('--drop', is_flag=True, help='Create after drop.')
@@ -113,8 +124,6 @@ def register_commands(app):
 
         click.echo('Initializing the roles and permissions...')
         Role.init_role()
-
-        User.init_role()
 
         click.echo('Done.')
 
