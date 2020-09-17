@@ -137,15 +137,15 @@ $(function () {
         });
     }
 
-    function update_notifications_count(){
+    function update_notifications_count() {
         var $el = $('#notification-badge');
         $.ajax({
             type: 'GET',
             url: $el.data('href'),
             success: function (data) {
-                if(data.count === 0){
+                if (data.count === 0) {
                     $('#notification-badge').hide();
-                }else {
+                } else {
                     $el.show();
                     $el.text(data.count)
                 }
@@ -153,7 +153,9 @@ $(function () {
         })
     }
 
-    if(is_authenticated) {setInterval(update_notifications_count, 30000);}
+    if (is_authenticated) {
+        setInterval(update_notifications_count, 30000);
+    }
 
     //监听整个DOM 事件,选择器，触发的回调函数
     $(document).on('click', '.follow-btn', follow.bind(this));
@@ -191,4 +193,50 @@ $(function () {
     });
 
     $("[data-toggle='tooltip']").tooltip({title: moment($(this).data('timestamp')).format('lll')})
+
+    function update_collectors_count(id) {
+        $.ajax({
+            type: 'GET',
+            url: $('#collectors-count-' + id).data('href'),
+            success: function (data) {
+                console.log(data);
+                $('#collectors-count-' + id).text(data.count);
+            }
+        });
+    }
+
+    function collect(e) {
+        var $el = $(e.target);
+        var id = $el.data('id');
+
+        $.ajax({
+            type: 'POST',
+            url: $el.data('href'),
+            success: function (data) {
+                $el.prev().show();
+                $el.hide();
+                update_collectors_count(id);
+                toast(data.message);
+            }
+        });
+    }
+
+    function uncollect(e) {
+        var $el = $(e.target);
+        var id = $el.data('id');
+        $.ajax({
+            type: 'POST',
+            url: $el.data('href'),
+            success: function (data) {
+                $el.next().show();
+                $el.hide();
+                update_collectors_count(id);
+                toast(data.message);
+            }
+        });
+    }
+
+    $(document).on('click', '.collect-btn', collect.bind(this));
+    $(document).on('click', '.uncollect-btn', uncollect.bind(this));
+
 });

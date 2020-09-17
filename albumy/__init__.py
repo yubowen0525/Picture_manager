@@ -16,7 +16,7 @@ from albumy.blueprints.auth import auth_bp
 from albumy.blueprints.main import main_bp
 from albumy.blueprints.user import user_bp
 from albumy.extensions import bootstrap, db, mail, moment, login_manager, dropzone, avatars, csrf
-from albumy.models.model import Role, User
+from albumy.models.model import Role, User, Photo, Tag, Comment, Collect, Follow, Notification
 from albumy.settings import config
 
 
@@ -59,7 +59,9 @@ def register_blueprints(app):
 def register_shell_context(app):
     @app.shell_context_processor
     def make_shell_context():
-        return dict(db=db, User=User)
+        return dict(db=db, User=User, Photo=Photo, Tag=Tag,
+                    Follow=Follow, Collect=Collect, Comment=Comment,
+                    Notification=Notification)
 
 
 def register_template_context(app):

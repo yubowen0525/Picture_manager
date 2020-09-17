@@ -165,6 +165,10 @@ class User(db.Model, UserMixin):
         self.avatar_l = filenames[2]
         db.session.commit()
 
+    @property
+    def followed_photos(self):
+        return Photo.query.join(Follow, Follow.followed_id == Photo.author_id).filter(Follow.follower_id == self.id)
+
     # 对于Flask_Login的普通用户，访客并没有is_admin,can的方法，所以需要手动自定义Guest类
     @property
     def is_admin(self):
