@@ -1,21 +1,26 @@
 # -*- coding: utf-8 -*-
 """
--------------------------------------------------
-   File Name：     ajax
-   Description :
-   Author :       ybw
-   date：          2020/9/14
--------------------------------------------------
-   Change Activity:
-                   2020/9/14:
--------------------------------------------------
+    :author: Grey Li (李辉)
+    :url: http://greyli.com
+    :copyright: © 2018 Grey Li <withlihui@gmail.com>
+    :license: MIT, see LICENSE for more details.
 """
-from flask import Blueprint, render_template, abort, jsonify
+from flask import render_template, jsonify, Blueprint
 from flask_login import current_user
 
-from albumy.models.model import User
+from albumy.models.model import User, Notification
+from albumy.notifications import push_follow_notification
 
-ajax_bp = Blueprint("ajax", __name__)
+ajax_bp = Blueprint('ajax', __name__)
+
+
+@ajax_bp.route('/notifications-count')
+def notifications_count():
+    if not current_user.is_authenticated:
+        return jsonify(message='Login required.'), 403
+
+    count = Notification.query.with_parent(current_user).filter_by(is_read=False).count()
+    return jsonify(count=count)
 
 
 @ajax_bp.route('/profile/<int:user_id>')
@@ -27,7 +32,7 @@ def get_profile(user_id):
 @ajax_bp.route('/followers-count/<int:user_id>')
 def followers_count(user_id):
     user = User.query.get_or_404(user_id)
-    count = user.following.count() - 1
+    count = user.followers.count() - 1  # minus user self
     return jsonify(count=count)
 
 
@@ -45,6 +50,7 @@ def follow(username):
         return jsonify(message='Already followed.'), 400
 
     current_user.follow(user)
+    push_follow_notification(follower=current_user, receiver=user)
     return jsonify(message='User followed.')
 
 

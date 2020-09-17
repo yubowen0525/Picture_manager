@@ -15,6 +15,7 @@ from flask_login import current_user, login_required
 
 from albumy.decorators import permission_required, confirm_required
 from albumy.models.model import User, Photo, Collect
+from albumy.notifications import push_follow_notification
 from albumy.utils import redirect_back
 
 user_bp = Blueprint('user', __name__)
@@ -51,6 +52,7 @@ def follow(username):
         return redirect(url_for('.index', username=username))
 
     current_user.follow(user)
+    push_follow_notification(follower=current_user, receiver=user)
     flash('关注成功.', 'success')
     return redirect_back()
 

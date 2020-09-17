@@ -11,7 +11,7 @@ from flask import render_template, Blueprint, request, current_app, send_from_di
 from flask_login import login_required, current_user
 
 from albumy.forms.main import CommentForm, DescriptionForm, TagForm
-from albumy.models.model import db, Comment, Tag, Collect
+from albumy.models.model import db, Comment, Tag, Collect, Notification
 from albumy.decorators import confirm_required, permission_required
 from albumy.models.model import Photo
 from albumy.utils import rename_image, resize_image, flash_errors
@@ -319,3 +319,45 @@ def uncollect(photo_id):
     current_user.uncollect(photo)
     flash('取消收藏成功', 'info')
     return redirect(url_for('main.show_photo', photo_id=photo_id))
+
+
+@main_bp.route('/notifications')
+@login_required
+def show_notifications():
+    """
+    显示通知的视图中心
+    :return:
+    """
+    page = request.args.get('page', 1, type=int)
+    per_page = current_app.config['ALBUMY_NOTIFICATION_PER_PAGE']
+    notifications = Notification.query.with_parent(current_user)
+    filter_rule = request.args.get('filter')
+    if filter_rule == 'unread':
+        notifications = notifications.filter_by(is_read=False)
+
+    pagination = notifications.order_by(Notification.timestamp.desc()).paginate(page, per_page)
+    notifications = pagination.items
+    return render_template('main/notifications.html', pagination=pagination, notifications=notifications)
+
+
+@main_bp.route('/notification/read/<int:notification_id>', methods=['POST'])
+@login_required
+def read_notification(notification_id):
+    notification = Notification.query.get_or_404(notification_id)
+    if current_user != notification.receiver:
+        abort(403)
+
+    notification.is_read = True
+    db.session.commit()
+    flash('Notification archived.', 'success')
+    return redirect(url_for('.show_notifications'))
+
+
+@main_bp.route('/notifications/read/all', methods=['POST'])
+@login_required
+def read_all_notification():
+    for notification in current_user.notifications:
+        notification.is_read = True
+    db.session.commit()
+    flash('All notifications archived.', 'success')
+    return redirect(url_for('.show_notifications'))
