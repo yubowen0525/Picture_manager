@@ -14,7 +14,10 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 from flask_whooshee import Whooshee
+from flask_caching import Cache
 
+
+cache = Cache()
 whooshee = Whooshee()
 bootstrap = Bootstrap()
 db = SQLAlchemy()

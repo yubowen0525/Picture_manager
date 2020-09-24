@@ -11,3 +11,5 @@ flask
 flask-whooshee
 flask-avatars
 flask-dropzone
+flask-caching
+redis

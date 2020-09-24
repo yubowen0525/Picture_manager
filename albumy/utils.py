@@ -49,10 +49,10 @@ def flash_errors(form):
             ))
 
 
-def generate_token(user, operator, expire_in=None, **kwargs):
+def generate_token(user, operation, expire_in=None, **kwargs):
     s = Serializer(current_app.config['SECRET_KEY'], expire_in)
 
-    data = {'id': user.id, 'operation': operator}
+    data = {'id': user.id, 'operation': operation}
     data.update(**kwargs)
     # dumps: data -> token
     return s.dumps(data)

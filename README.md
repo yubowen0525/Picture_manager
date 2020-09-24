@@ -140,6 +140,131 @@ dropzone.create()
 1. Celery
 2. APScheduler
 
+# 集成单元测试
+TDD （Test-Driven Development）先编写对应的测试，接着编写代码，不断完善代码直至通过测试为止。
+
+这种方法简化了开发的过程，因为它遵循KISS（Keep It Simple，Stupid）和 YAGNI （You Aren't Gonna Need It）原则，不过产生多余的代码和程序功能
+
+## 自动化测试分三种
+![13](.README_images/93af8133.png)
+1. 单元测试(Unit Test)：单独的代码块，比如函数进行测试
+2. 集成测试(Integration Test): 集成测试对代码单位之间的协同工作进行测试，比如测试Flask 和 各个Flask扩展的集成代码。在部署到云平台时，集成测试可以确保
+程序和云平台接口正常协作。
+3. 用户界面内测试(User Interface Test): 端对端测试或全链路测试，适合用来测试复杂的页面交互。比如包含JavaScript代码和AJAX请求等实现的功能
+
+## flask_client
+```python
+# 创建测试客户端对象
+from wsgi import app
+client = app.test_client() 
+response = client.get('/')
+response.get_data()
+response.status_code
+response.status
+
+# follow_redirects 跟随重定向
+client.post('/',data={"key":"value","key2":"value2"}, follow_redirects=True)
+
+```
+
+## unittest 写测试用户
+1. 测试用例(Test Case) 最小的测试单元被称为测试用例，继承unittest.TestCase的类表示
+2. 测试固件(Test Fixture) 执行测试前期准备工作Setup()和后期清理工作tearDown()。setUpClass()和tearDownClass()
+需要classmethod装饰器
+3. 测试集(Test Suite) 用来聚合所有测试以便执行
+4. 测试运行器(Test Runner) 测试运行器用来运行测试，收集测试结果，并呈现给用户。
+
+## coverage 检查测试用例的代码覆盖率
+通过unittest写好测试用例后，通过coverage来汇报测试用例是否覆盖了全部的代码函数
+```shell script
+# 第一种方式直接写
+coverage run --source=albumy --branch -m unittest discover
+
+# 第二种方式创建.coverage文件来保存配置
+coverage run -m unittest discover
+```
+此时测试用例跑完，会生成一个覆盖率统计结果文件.coverage。有了覆盖率统计结果的文件后，只需要再运行report命令，就可以看到统计的结果了
+```shell script
+coverage report
+coverage html
+```
+## Flask8检查代码的质量问题
+帮助检测代码是否符合PEP 8规范，是否包含语法错误或未使用的变量和导入，另外还可以检查代码复杂度
+
+
+# 性能优化
+- 函数执行
+- 数据库查询
+- 模板渲染
+- 页面资源加载
+
+## 函数性能分析
+使用profiler库来分析整个代码库哪些函数运行最慢，可以使用异步队列任务把它们放到后台处理，避免阻塞请求响应的处理
+
+好用的任务队列推荐：
+- Celery
+- Redis-Queue
+
+## 数据库查询
+1. 发现慢查询：数据库查询如果超过1s的时间，则记录进日志中去。SQLALCHEMY_RECORD_QUERIES = True, 阈值设置为1s 。
+
+    ![14](.README_images/f8935d65.png)
+
+2. 解决: 增加索引，优化数据库查询语句，表结构三个方向进行优化。还有一个就是设置缓存
+
+### Flask-Caching 
+#### 设置缓存
+![15](.README_images/4c255e09.png)
+
+利用装饰器对视图函数设置缓存，timeout为过期时间，不同页面设置不同的缓存时间，如下可以设置缓存：
+网站介绍页面，隐私政策页面等不常变动的页面
+
+缓存的key需要唯一：
+- 被缓存的数据会以键值对的形式存储起来，当下次处理请求时会先查找是否存在对应键的数据，**所以要确保键值的唯一性**
+
+如果路由带了可变参数，需要每一个参数都设立缓存
+- ![16](.README_images/3691f840.png)
+
+缓存非视图函数，需要手动设置缓存键 key_prefix='add'
+- ![17](.README_images/1d56e72a.png)
+
+对于接收参数的函数和方法，如果你想将参数纳入缓存考虑范围，使用memoize()装饰器
+
+#### 更新缓存
+如果对页面内容进行了修改调用 cache.delete()方法来清除缓存，传入特定的键来获取对应的缓存
+![18](.README_images/d69c8841.png)
+
+cache.clear() 清除所有缓存
+
+cache.memoized() 删除缓存
+
+#### redis 作为后端
+![19](.README_images/7ba12a4e.png)
+
+## Flask-Assets 优化静态资源
+每一个HTML页面，会触发大量的JS文件和CSS文件，部署时我们一般采用租用CDN服务
+或是用设立独立的静态资源服务器的方式进行优化
+- 对CSS和JS文件进行压缩，去除换行，空白和注释，提高资源请求效率
+- 分别合并多个CSS文件和JS文件，减少页面加载的请求数
+
+而Webassets提供了Web项目的资源管理功能
+1. 注册资源集合
+    
+    ![20](.README_images/da9418ce.png)
+
+2. 生成资源文件
+3. 在模板中加载资源集
+
+
+### Vue.js
+这里就会发现，不如用Vue.js专门开发前端内容，后端采用Flask-RESTFUL API 
+
+
+# 使用Nginx
+1. 提高处理静态文件的效率。Nginx处理静态文件的速度非常快，而且可以对静态文件设置缓存
+2. 提高安全系数。使用它避免直接暴露WSGI服务器，而且可以作为防火墙来抵御网络攻击
+3. 提高程序处理能力。设置反向代理可以缓冲请求，对请求进行预处理，交给WSGI服务器一个完整的HTTP请求。设置负载均衡，优化请求处理效率
+
 
 # 插件依赖库
 ![10](.README_images/50a853b6.png)

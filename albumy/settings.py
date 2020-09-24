@@ -63,6 +63,13 @@ class BaseConfig:
 
     WHOOSHEE_MIN_STRING_LEN = 1
 
+    # 设置缓存
+    CACHE_TYPE = "redis"
+    CACHE_REDIS_HSOT = 'localhost'
+    CACHE_REDIS_PORT = '6379'
+    CACHE_REDIS_DB = '0'
+
+
 class DevelopmentConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = \
         prefix + os.path.join(basedir, 'data-dev.db')
